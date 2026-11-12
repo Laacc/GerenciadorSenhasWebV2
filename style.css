@@ -1,0 +1,11 @@
+body {
+    padding-top: 4 rem;
+    min-height: 100vh;
+    background-color: #09111B;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(249, 38, 114, 0.18) 0%, transparent 45%),
+        radial-gradient(circle at 90% 80%, rgba(85, 165, 237, 0.18) 0%, transparent 45%),
+        linear-gradient(145deg, #09111B 0%, #0d1927 50%, #09111B 100%);
+    background-attachment: fixed;
+
+}
