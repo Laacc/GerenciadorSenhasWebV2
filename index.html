@@ -28,7 +28,6 @@
                             <button id="btnEntrar" class="btn btnGray" type="submit">Entrar</button>
                             <button id="btnCriarConta" class="btn btnGray" type="button">Criar Conta</button>
                         </div>
-                        <div id="msg"></div>
                     </form>
                 </section>
 
@@ -67,14 +66,24 @@
                                 <button id="btnSubmitNovaSenha" type="submit" class="btn btn-primary">Salvar Senha</button>
                             </div>
                         </form>
-
+                        <div id="msg"></div>
                         <h3 class="mt-4">Suas Senhas</h3>
                         <ul id="listaSenhas" class="list-group">
                             
                         </ul>
                         <p id="msgVazio" class="text-muted">Nenhuma senha salva ainda.</p>
-                        <button id="btnSair" type="button" class="btn btn-outline-secondary">Sair</button>
+                        <button id="btnSair" type="button" class="btn btn-outline-secondary mt-3">Sair</button>
                 </section>
+
+                <dialog id="dlgConfirmar">
+                    <form method="dialog">
+                        <p id="dlgTexto"></p>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button value="nao" class="btn btn-outline-secondary">Cancelar</button>
+                            <button value="sim" class="btn btn-outline-danger">Apagar</button>
+                        </div>
+                    </form>
+                </dialog>
             </div>
         </div>
     </main>
