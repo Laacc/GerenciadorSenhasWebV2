@@ -16,6 +16,9 @@ const listaSenhas = document.getElementById("listaSenhas");
 const msgVazio = document.getElementById("msgVazio");
 const dlg = document.getElementById("dlgConfirmar");
 const dlgTexto = document.getElementById("dlgTexto");
+const inputMestra = document.getElementById("inputMestra");
+const btnDestravar = document.getElementById("btnDestravar");
+let chave = null;
 
 async function iniciar(){
 
@@ -113,14 +116,18 @@ async function carregarSenhas(){
         btnCopiar.type = "button", btnCopiar.className = "btn btn-outline-primary btn-sm", btnCopiar.textContent = "Copiar";
 
         btnCopiar.addEventListener("click", async () => {
-            try { 
-                await navigator.clipboard.writeText(item.senha_cifrada);
+            if(!chave){
+                mostrarMsg("Destrave o cofre primeiro.", true);
+                return;
+            }
+            try {
+                const senhaClara = await decifrar(item.senha_cifrada);
+                await navigator.clipboard.writeText(senhaClara);
                 mostrarMsg("Senha copiada!", false);
-            } catch { 
-                mostrarMsg("Não foi possível copiar.", true)
-            };
-            
-        });
+            } catch {
+                mostrarMsg("Não foi possível copiar.", true);
+            }
+});
 
         texto.append(nome, login);
         acoes.append(btnCopiar, btnApagar);
@@ -129,6 +136,46 @@ async function carregarSenhas(){
     }
 
 };
+
+async function criarChave(mestra, salt){
+    const codificador = new TextEncoder();
+
+    const material = await crypto.subtle.importKey(
+        "raw", codificador.encode(mestra), "PBKDF2", false, ["deriveKey"]
+    );
+
+    return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt: codificador.encode(salt), iterations: 250000, hash: "SHA-256" },
+        material,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+    );
+}
+
+function paraBase64(bytes){
+    return btoa(String.fromCharCode(...bytes));
+}
+
+function deBase64(texto){
+    return Uint8Array.from(atob(texto), c => c.charCodeAt(0));
+}
+
+async function cifrar(texto){
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const dados = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv }, chave, new TextEncoder().encode(texto)
+    );
+    return paraBase64(iv) + ":" + paraBase64(new Uint8Array(dados));
+}
+
+async function decifrar(texto){
+    const [ivTexto, dadosTexto] = texto.split(":");
+    const resultado = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: deBase64(ivTexto) }, chave, deBase64(dadosTexto)
+    );
+    return new TextDecoder().decode(resultado);
+}
 
 function confirmar(texto){
     dlgTexto.textContent = texto;
@@ -204,11 +251,13 @@ btnSair.addEventListener("click", async () => {
     } else {
         telaCofre.hidden = true;
         telaLogin.hidden = false;
+        chave = null;
 
         email.value = "";
         senha.value = "";
         msg.textContent = "";
         senhaSite.value = "";
+        inputMestra.value = "";
         listaSenhas.replaceChildren();
     }
 });
@@ -220,6 +269,11 @@ btnGerar.addEventListener("click", function(){
 formNovaSenha.addEventListener("submit", async (evento) => {
     evento.preventDefault();
 
+    if(!chave){
+    mostrarMsg("Destrave o cofre primeiro.", true);
+    return;
+    }
+
     const userSenha = senhaSite.value;
     const userPlataforma = plataforma.value.trim();
     const userLoginSite = loginSite.value.trim();
@@ -229,7 +283,9 @@ formNovaSenha.addEventListener("submit", async (evento) => {
         return;
     }
 
-    const {data, error} = await db.from("senhas").insert({plataforma: userPlataforma, login_site: userLoginSite, senha_cifrada: userSenha});
+    const senhaCifrada = await cifrar(userSenha);
+
+    const {data, error} = await db.from("senhas").insert({plataforma: userPlataforma, login_site: userLoginSite, senha_cifrada: senhaCifrada});
 
     if(error){
         mostrarMsg(`${error.message}`, true);
@@ -239,6 +295,31 @@ formNovaSenha.addEventListener("submit", async (evento) => {
         formNovaSenha.reset();
         carregarSenhas();
     }
+});
+
+btnDestravar.addEventListener("click", async () => {
+    const senhaMestra = inputMestra.value;
+
+    if(senhaMestra === ""){
+        mostrarMsg("Digite a senha mestra!", true);
+        return;
+    }
+
+    const {data} = await db.auth.getUser();
+    chave = await criarChave(senhaMestra, data.user.id);
+
+    const {data: linhas} = await db.from("senhas").select("senha_cifrada").limit(1);
+    if(linhas && linhas.length > 0){
+        try {
+            await decifrar(linhas[0].senha_cifrada);
+        } catch {
+            chave = null;
+            mostrarMsg("Senha mestra incorreta.", true);
+            return;
+        }
+    }
+
+    mostrarMsg("Cofre destravado!", false);
 });
 
 iniciar();
