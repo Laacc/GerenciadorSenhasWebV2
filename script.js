@@ -169,10 +169,10 @@ async function cifrar(texto){
     return paraBase64(iv) + ":" + paraBase64(new Uint8Array(dados));
 }
 
-async function decifrar(texto){
+async function decifrar(texto, k = chave){
     const [ivTexto, dadosTexto] = texto.split(":");
     const resultado = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: deBase64(ivTexto) }, chave, deBase64(dadosTexto)
+        { name: "AES-GCM", iv: deBase64(ivTexto) }, k, deBase64(dadosTexto)
     );
     return new TextDecoder().decode(resultado);
 }
@@ -305,20 +305,26 @@ btnDestravar.addEventListener("click", async () => {
         return;
     }
 
+    chave = null;
     const {data} = await db.auth.getUser();
-    chave = await criarChave(senhaMestra, data.user.id);
+    const novaChave = await criarChave(senhaMestra, data.user.id);
 
-    const {data: linhas} = await db.from("senhas").select("senha_cifrada").limit(1);
-    if(linhas && linhas.length > 0){
+    const {data: linhas, error} = await db.from("senhas").select("senha_cifrada").limit(1);
+    if(error){
+        mostrarMsg("Não foi possível validar a senha mestra.", true);
+        return;
+    }
+
+    if(linhas.length > 0){
         try {
-            await decifrar(linhas[0].senha_cifrada);
+            await decifrar(linhas[0].senha_cifrada, novaChave);
         } catch {
-            chave = null;
             mostrarMsg("Senha mestra incorreta.", true);
             return;
         }
     }
 
+    chave = novaChave;
     mostrarMsg("Cofre destravado!", false);
 });
 
